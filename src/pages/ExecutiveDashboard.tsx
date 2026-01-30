@@ -3,18 +3,15 @@ import {
     Clock,
     CheckCircle,
     TrendingUp,
-    TrendingDown,
     Minus,
-    Users,
     Zap,
     Heart,
     AlertTriangle,
-    Calendar,
     ArrowUpRight,
     ArrowDownRight,
 } from 'lucide-react';
 import { GlassCard, Select } from '../components/ui';
-import { LineChart, StackedBarChart, ScatterPlot, IndonesiaMap } from '../components/charts';
+import { StackedBarChart, IndonesiaMap } from '../components/charts';
 import {
     AreaChart,
     Area,
@@ -24,20 +21,15 @@ import {
     Tooltip,
     ResponsiveContainer,
     ReferenceLine,
-    BarChart,
-    Bar,
     PieChart,
     Pie,
     Cell,
 } from 'recharts';
 import {
     regions,
-    regionSummaries,
     areaSummaries,
-    bankwideSummary,
     branches,
     dailyMetrics,
-    last60DailyMetrics,
     computePeriodComparison,
     aggregateDailyTrend,
     monthlyLabels,
@@ -50,7 +42,6 @@ export function ExecutiveDashboard() {
     const [fastTimeframe, setFastTimeframe] = useState<TimeframeDays>(60);
     const [consistentTimeframe, setConsistentTimeframe] = useState<TimeframeDays>(60);
     const [efficientTimeframe, setEfficientTimeframe] = useState<TimeframeDays>(60);
-    const [positiveTimeframe, setPositiveTimeframe] = useState<TimeframeDays>(60);
 
     // Branch Movement comparison state
     const [comparisonType, setComparisonType] = useState<'monthly' | 'weekly'>('monthly');
@@ -72,27 +63,6 @@ export function ExecutiveDashboard() {
     const filteredAreaSummaries = useMemo(() => {
         if (!selectedRegion) return areaSummaries;
         return areaSummaries.filter(a => a.regionId === selectedRegion);
-    }, [selectedRegion]);
-
-    // Current summary stats
-    const currentSummary = useMemo(() => {
-        if (!selectedRegion) return bankwideSummary;
-        const region = regionSummaries.find(r => r.regionId === selectedRegion);
-        return region
-            ? {
-                ...bankwideSummary,
-                totalBranches: region.branchCount,
-                totalAreas: region.areaCount,
-                avgQueueTime: region.avgQueueTime,
-                avgSlaMet: region.slaMet,
-                avgServiceFailureRate: region.serviceFailureRate,
-                avgSes: region.sesScore,
-                avgNps: region.npsScore,
-                branchesImproving: region.branchesImproving,
-                branchesStagnant: region.branchesStagnant,
-                branchesDeclining: region.branchesDeclining,
-            }
-            : bankwideSummary;
     }, [selectedRegion]);
 
     // Map Data (SQI Calculation - 6 metrics)
@@ -235,11 +205,6 @@ export function ExecutiveDashboard() {
     const avgFTEPerBranch = 5;
     const totalFTE = filteredBranchIds.length * avgFTEPerBranch;
 
-    const transactionsComparison = useMemo(
-        () => computePeriodComparison(dailyMetrics, filteredBranchIds, 'totalTransactions', 7),
-        [filteredBranchIds]
-    );
-
     // Trx per FTE comparison
     const trxPerFTEComparison = useMemo(() => {
         const filtered = dailyMetrics.filter(m => filteredBranchIds.includes(m.branchId));
@@ -298,41 +263,6 @@ export function ExecutiveDashboard() {
         };
     }, [filteredBranchIds]);
 
-    const utilisationComparison = useMemo(() => {
-        const filtered = dailyMetrics.filter(m => filteredBranchIds.includes(m.branchId));
-        const dates = [...new Set(filtered.map(m => m.date))].sort();
-        const currentDates = dates.slice(-7);
-        const previousDates = dates.slice(-14, -7);
-
-        const currentData = filtered.filter(m => currentDates.includes(m.date));
-        const previousData = filtered.filter(m => previousDates.includes(m.date));
-
-        const currentAvg = currentData.length > 0
-            ? currentData.reduce((s, m) => s + m.utilisationRate, 0) / currentData.length
-            : 0;
-        const previousAvg = previousData.length > 0
-            ? previousData.reduce((s, m) => s + m.utilisationRate, 0) / previousData.length
-            : 0;
-
-        const change = currentAvg - previousAvg;
-        const changePercent = previousAvg !== 0 ? (change / previousAvg) * 100 : 0;
-
-        return {
-            current: Math.round(currentAvg),
-            previous: Math.round(previousAvg),
-            change: Math.round(change * 10) / 10,
-            changePercent: Math.round(changePercent * 10) / 10,
-        };
-    }, [filteredBranchIds]);
-
-    const transactionsTrendData = useMemo(() => {
-        const allTrend = aggregateDailyTrend(dailyMetrics, filteredBranchIds, 'totalTransactions');
-        return allTrend.slice(-efficientTimeframe).map(d => ({
-            ...d,
-            date: d.date.slice(5),
-        }));
-    }, [filteredBranchIds, efficientTimeframe]);
-
     const serviceTimeTrendData = useMemo(() => {
         const filtered = dailyMetrics.filter(m => filteredBranchIds.includes(m.branchId));
         const byDate: Record<string, number[]> = {};
@@ -344,23 +274,6 @@ export function ExecutiveDashboard() {
             .map(([date, values]) => ({
                 date: date.slice(5),
                 value: Math.round(values.reduce((s, v) => s + v, 0) / values.length * 10) / 10,
-            }))
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(-efficientTimeframe);
-    }, [filteredBranchIds, efficientTimeframe]);
-
-    // Utilization Rate Trend Data
-    const utilisationTrendData = useMemo(() => {
-        const filtered = dailyMetrics.filter(m => filteredBranchIds.includes(m.branchId));
-        const byDate: Record<string, number[]> = {};
-        filtered.forEach(m => {
-            if (!byDate[m.date]) byDate[m.date] = [];
-            byDate[m.date].push(m.utilisationRate);
-        });
-        return Object.entries(byDate)
-            .map(([date, values]) => ({
-                date: date.slice(5),
-                value: Math.round(values.reduce((s, v) => s + v, 0) / values.length),
             }))
             .sort((a, b) => a.date.localeCompare(b.date))
             .slice(-efficientTimeframe);
@@ -480,22 +393,6 @@ export function ExecutiveDashboard() {
             improving: area.branchesImproving,
             stagnant: area.branchesStagnant,
             declining: area.branchesDeclining,
-        }));
-    }, [filteredAreaSummaries]);
-
-    // Transformation scatter data
-    const transformationData = useMemo(() => {
-        return filteredAreaSummaries.map(area => ({
-            name: area.areaName,
-            opsImprovement: ((85 - area.avgQueueTime) / 85) * 100,
-            perceptionChange: (area.sesScore - 3.5) * 20,
-            status:
-                area.branchesImproving > area.branchesDeclining
-                    ? 'Improving'
-                    : area.branchesDeclining > area.branchesImproving
-                        ? 'Declining'
-                        : 'Stagnant',
-            branchCount: area.branchCount,
         }));
     }, [filteredAreaSummaries]);
 

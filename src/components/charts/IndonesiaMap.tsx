@@ -23,12 +23,13 @@ interface MapPoint {
 }
 
 interface IndonesiaMapProps {
+    title?: string;
     points: MapPoint[];
     height?: number;
     onPointClick?: (point: MapPoint) => void;
 }
 
-export function IndonesiaMap({ points, height = 300, onPointClick }: IndonesiaMapProps) {
+export function IndonesiaMap({ title: _title, points, height = 300, onPointClick }: IndonesiaMapProps) {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapRef = useRef<L.Map | null>(null);
     const markersRef = useRef<L.CircleMarker[]>([]);
